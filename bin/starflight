@@ -1,0 +1,125 @@
+#!/usr/bin/perl
+
+use lib "../lib";
+
+use strict;
+
+use Getopt::Long qw(:config auto_abbrev no_ignore_case);
+use Pod::Usage;
+
+use Starflight;
+
+use Data::Dumper;
+
+our $VERSION = $Starflight::VERSION;
+
+my %Options = (
+	'redis-host' => '127.0.0.1', 
+	'redis-port' => 6379, 
+	'listen-address' => '0.0.0.0',
+	'log4perl' => 'log4perl.conf',
+	'log4perl-reload-interval' => 60,
+	'request-workers' => 64,
+	'trigger-workers' => 16
+);
+
+GetOptions(\%Options, 
+	'help|h|?', 
+	'version|v',
+	'listen-address|l=s',
+	'port|p=s', 
+	'redis-host|r=s', 
+	'redis-port|R=i', 
+	'request-workers|w=s', 
+	'trigger-workers|W=s',
+	'log4perl|g=s', 
+	'log4perl-reload-interval|G=i'
+) or pod2usage(2);
+    
+pod2usage(2) if ($Options{'help'} || !$Options{'port'});
+show_version() if $Options{'version'};
+
+our %Settings = (
+	'config' => {
+		'type' => 'redis',
+		'redis' => {
+			'host' => $Options{'redis-host'}, 
+			'port' => $Options{'redis-port'},
+			'workers' => 4
+		}
+	},
+	'cache' => {
+		'type' => 'redis',	
+		'redis' => {
+			'host' => $Options{'redis-host'}, 
+			'port' => $Options{'redis-port'},
+			'workers' => 4
+		}
+	},
+	'request_worker' => {
+		'workers' => $Options{'request-workers'}
+	},
+	'trigger_worker' => {
+		'workers' => $Options{'trigger-workers'}
+	},
+	'logging' => {
+		'config_file' => $Options{'log4perl'},
+		'reload_interval' => $Options{'log4perl-reload-interval'},			
+	},
+	'server' => {
+		'listen_port' => $Options{'port'},
+		'listen_address' => $Options{'listen-address'},
+	}
+);
+
+my $server = Starflight->new(\%Settings);
+
+$SIG{USR1} = sub {
+	$server->stop();   
+};
+
+$server->start();
+
+sub show_version {
+	print "$0 - $VERSION\n\n";
+	pod2usage(2);
+}
+
+=head1 NAME
+
+starflight - Corona Reverse Proxy
+
+=head1 SYNOPSIS
+
+starflight [options]
+
+  Options:
+    --help,         -h      Display this help
+    --version,      -v      Display version information
+    --port,         -p      Bind to this TCP port
+    --redis-host    -r      Redis host [default: 127.0.0.1]
+    --redis-port    -R      Redis port [default: 6379]
+
+=head1 OPTIONS
+
+=over 8
+
+=item B<--help>
+
+=item B<--version>
+
+=item B<--port>
+
+=item B<--redis-host>
+
+=back
+
+=head1 DESCRIPTION
+
+Description info
+
+=head1 VERSION
+
+0.1
+
+=cut

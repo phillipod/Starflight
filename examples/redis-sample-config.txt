@@ -1,0 +1,144 @@
+###
+### Triggers - Call web services when requests matching some criteria are received
+###
+### Triggers are comprised of a criteria and an action. The trigger criteria is evaluated as a perl Text::Template string, and 
+### has access to:
+### 
+###    * $request - Plack::Request object for this request.
+###
+### The action is comprised of a destination, request method, header list and request template. The template is evaluated as a
+### perl Text::Template string, and has access to:
+### 
+###    * $request - Plack::Request object for this request.
+###    * $server - The contents of the config://[host]/server/ hash key relevant to this request
+###    * $remote_address - The IP of the client, or if specified, the contents of the X-Forwarded-For header
+###    * $timestamp - ISO 8601 timestamp, e.g., 2015-06-25T23:29:01+1200
+###    * $time - UNIX timestamp with sub-second precision, e.g., 1435231853.432
+###
+
+###
+### Global triggers
+
+## Query Trigger
+
+# Define some global trigger SomeQueryTrigger
+HSET trigger://global/ SomeQueryTrigger trigger://global/some_query/
+
+# Set criteria for the trigger (if query string parameter gclid is present)
+HSET trigger://global/some_query/ trigger "{ if (defined($request->query_parameters->{some_parameter})) { return 1; } return 0; }"
+
+# Set what hash key contains the action defintion
+HSET trigger://global/some_query/ action trigger://global/some_query/action/
+
+# Trigger definitions are cached. Update the SN if the trigger is changed and all proxy instances will load the new definition
+# for the next request
+HSET trigger://global/some_query/ sn 1
+
+# The destination address of the webservice to call for this action
+HSET trigger://global/some_query/action/ destination http://some.api/some_query_triggered/
+
+# HTTP request method
+HSET trigger://global/adwords/action/ method POST
+
+# Name of a hash key that contains headers (e.g., API key, content type) to send to the web service
+HSET trigger://global/adwords/action/ headers trigger://global/adwords/action/headers/
+
+# And those headers are...
+HSET trigger://global/adwords/action/headers/ X-API-Key "<some auth key>"
+HSET trigger://global/adwords/action/headers/ Content-Type application/json
+HSET trigger://global/adwords/action/headers/ User-Agent "Starflight Trigger #1"
+
+# Template for the request body for the call to the web service. 
+HSET trigger://global/adwords/action/ template "{ encode_json({ 'some_parameter' => '$request->query_parameters->{'some_parameter'}, 'ip_address' => '$remote_address, 'host' => '$server->{host_header} }); }"
+
+## Some Cookie Trigger
+HSET trigger://global/ SomeCookieTrigger trigger://global/some_cookie_trigger/
+
+HSET trigger://global/some_cookie_trigger/ trigger "{ if (exists $request->cookies->{cookie_trigger_called} || !exists $request->cookies->{some_other_cookie}) { return 0; } return 1; }"
+HSET trigger://global/some_cookie_trigger/ action trigger://global/some_cookie_trigger/action/
+HSET trigger://global/some_cookie_trigger/ sn 1
+
+HSET trigger://global/some_cookie_trigger/action/ destination http://some.api/some_cookie_trigger/
+HSET trigger://global/some_cookie_trigger/action/ method POST 
+HSET trigger://global/some_cookie_trigger/action/ headers trigger://global/some_cookie_trigger/action/headers/
+HSET trigger://global/some_cookie_trigger/action/ template "{ encode_json({ 'some_other_cookie' => '$request->cookies->{some_other_cookie}, 'ip_address' => '$remote_address, 'host' => '$server->{host_header} }); }"
+
+HSET trigger://global/some_cookie_trigger/action/headers/ X-API-Key "<some auth key>"
+HSET trigger://global/some_cookie_trigger/action/headers/ Content-Type application/json
+HSET trigger://global/some_cookie_trigger/action/headers/ User-Agent "Starflight Trigger #2"
+
+###
+### Configuration
+###
+
+## Global configuration
+
+# Define a cookie to be set on all requests to prevent retriggering an some_cookie_trigger request more than once in some
+# specified period
+HSET config://global/cookies/add/ cookie_trigger_called config://global/cookies/add/cookie_trigger_called/
+HSET config://global/cookies/add/cookie_trigger_called/ value true
+HSET config://global/cookies/add/cookie_trigger_called/ max-age 1800
+HSET config://global/cookies/add/cookie_trigger_called/ path /
+HSET config://global/cookies/add/cookie_trigger_called/ secure 0
+HSET config://global/cookies/add/cookie_trigger_called/ httponly 1
+
+
+## Site configuration
+
+# Configure site sorted set. All configuration for a site derives from here, and may include site-specific keys,
+# global keys, or entire other sites. The order provided by the sorted set defines the load order, and 
+# allows ordered overriding of configuration (in effect, configuration inheritance as well as inclusion)
+# 
+# The URI of all keys listed in this set defines how they are loaded by the configuration reader.
+# trigger:// scheme keys will load as a trigger definition, while config://[site]/server/ keys will load
+# as a server configuration key, et-cetera.
+ZADD config://demo.starflight.example/ 0.10 config://demo.starflight.example/server/
+ZADD config://demo.starflight.example/ 0.25 config://demo.starflight.example/headers/request/transform/
+ZADD config://demo.starflight.example/ 0.20 config://demo.starflight.example/headers/response/transform/
+ZADD config://demo.starflight.example/ 0.30 config://global/cookies/add/
+ZADD config://demo.starflight.example/ 0.40 config://demo.starflight.example/content/response/transform/selection/
+ZADD config://demo.starflight.example/ 0.45 config://demo.starflight.example/content/response/transform/global/
+ZADD config://demo.starflight.example/ 0.75 trigger://global/
+
+# Server definition. The serial number should be changed when any configuration for this site is updated, 
+# but should be updated only after all configuration has been applied, in order to reduce the liklihood of
+# the application caching a half-updated configuration for a site.
+HSET config://demo.starflight.example/server/ sn 2
+
+# Defines the host & host header for proxied requests from this application for this site.
+HSET config://demo.starflight.example/server/ host_header test-original.starflight.example
+
+# Define a general URL-type regex and replacement for this site. This is not directly used but is referred to
+# by other configuration. DRY.
+HSET config://demo.starflight.example/general/transform/url/ match www.starflight.example
+HSET config://demo.starflight.example/general/transform/url/ replace demo.starflight.example/
+# Set a response header transformation, for the URL: header, using the previously defined generic URL replacement
+HSET config://demo.starflight.example/headers/response/transform/ url config://demo.starflight.example/general/transform/url/
+
+# config://[site]/content/response/transform/selection/ - Configure transformations using CSS selectors. 
+# Only useful for text/html content types.
+HSET config://demo.starflight.example/content/response/transform/selection/ text/html config://demo.starflight.example/content/response/transform/selection/text_html/
+
+# Define a selector based replacement to replace the src attribute on any <img> tag where the src value is "some_image.gif" with # "some_image_2.gif"
+HSET config://demo.starflight.example/content/response/transform/selection/some_image.gif/ "img[src*=\"some_image.gif\"]" "substitute attr::src \"some_image.gif\" \"some_image_2.gif\""
+# And add it to the previously defined container for the text/html content type
+ZADD config://demo.starflight.example/content/response/transform/selection/text_html/ 0.10 config://demo.starflight.example/content/response/transform/selection/some_image.gif/
+
+# config://[site]/content/response/transform/global/ - Configure transformations using straight regular expressions
+# Useful for any text-based content type (including application/json, etc)
+HSET config://demo.starflight.example/content/response/transform/global/ text/css config://demo.starflight.example/content/response/transform/global/text_css/
+HSET config://demo.starflight.example/content/response/transform/global/ text/html config://demo.starflight.example/content/response/transform/global/text_html/
+HSET config://demo.starflight.example/content/response/transform/global/ text/javascript config://demo.starflight.example/content/response/transform/global/text_javascript/
+
+# Define a regular expression replacement, replacing 'some_image_3.jpg' with 'http://somewhere.else/some_other_image.png'
+HSET config://demo.starflight.example/content/response/transform/global/some_image_3.jpg/ match some_image_3\.jpg
+HSET config://demo.starflight.example/content/response/transform/global/some_image_3.jpg/ replace http://somewhere.else/some_other_image.png
+# And then use it on all text/css content
+ZADD config://demo.starflight.example/content/response/transform/global/text_css/ 0.10 config://demo.starflight.example/content/response/transform/global/some_image_3.jpg/
+# As well as all text/html content
+ZADD config://demo.starflight.example/content/response/transform/global/text_html/ 0.10 config://demo.starflight.example/content/response/transform/global/some_image_3.jpg/
+
+# And since javascript can contain references to the site URL, use the previously defined generic URL replacement here too
+ZADD config://demo.starflight.example/content/response/transform/global/text_javascript/ 0.10 config://demo.starflight.example/general/transform/url/
+
+
