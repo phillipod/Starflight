@@ -259,6 +259,7 @@ sub transform_response {
 		$content_type = $1;
 	}
 	
+	my $encode_utf_required = 0;
 	if ($item->{status} != 304) {
 		if ($host_config->{content}{response}{selection}{$content_type}) {
 			my $ops = $host_config->{content}{response}{selection}{$content_type};
@@ -291,6 +292,7 @@ sub transform_response {
 			}
 
 			$item->{response_body} = $dom->to_string;	   
+			$encode_utf_required++;
 		}
 	
 		$self->{logger}->debug("Checking for text replacements for content type $content_type");
@@ -307,10 +309,13 @@ sub transform_response {
 					$item->{response_body} =~ s/$transformation->{match}/$transformation->{replace}/gi;
 				}
 			}
+			$encode_utf_required++;
 		}
 	}
 	
-	utf8::encode($item->{response_body});
+	if ($encode_utf_required) {
+		utf8::encode($item->{response_body});
+	}
 	
 	$self->compress_response($item, $item->{response_body});
 	
