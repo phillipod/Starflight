@@ -221,6 +221,10 @@ sub transform_response_headers {
 	my $host_config = shift;
 	my $item = shift;
 	
+	if ($item->{response_headers}->header('Transfer-Encoding') eq "chunked") {
+		$item->{response_headers}->remove_header('Transfer-Encoding');
+	}
+	
 	while (my ($transform_header, $transformation) = each %{$host_config->{headers}{response}{transform}}) {
 		Coro::AnyEvent::poll;
 #		print "Checking $transform_header\n";
@@ -250,6 +254,10 @@ sub transform_response {
 	$self->transform_response_headers($host_config, $item);
 	
 	my $content_type = $item->{response_headers}->header('Content-Type');
+	
+	if ($content_type =~ /^(.*)?;.*$/) {
+		$content_type = $1;
+	}
 	
 	if ($item->{status} != 304) {
 		if ($host_config->{content}{response}{selection}{$content_type}) {
@@ -285,9 +293,12 @@ sub transform_response {
 			$item->{response_body} = $dom->to_string;	   
 		}
 	
+		$self->{logger}->debug("Checking for text replacements for content type $content_type");
 		if ($host_config->{content}{response}{global}{$content_type}) {
 			my $ops = $host_config->{content}{response}{global}{$content_type};
 
+			$self->{logger}->trace(Dumper($ops));
+			
 			foreach my $type ('transform') {
 				Coro::AnyEvent::poll;
 				if (!$ops->{$type}) { next; }

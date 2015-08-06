@@ -76,13 +76,14 @@ sub host_config {
 	if (!defined($self->{cache}{$host_key}{server}{sn}) 
 			|| (defined($self->{cache_expiry}{$host_key}) && AE::time >= $self->{cache_expiry}{$host_key})
 			|| ($self->{cache}{$host_key}{server}{sn} < $self->{model}->get_host_serial({ -key => $host_key . "server/" }))) {
+
 		if ($self->{locks}->try($host_key)) {
-		  $self->{model}->load_host_config({ -key => $host_key }, $self->{cache}{$host_key});
+		        $self->{model}->load_host_config({ -key => $host_key }, $self->{cache}{$host_key});
 				
-		  my $reload_interval = ($self->{cache}{$host_key}{server}{reload_interval} ? $self->{cache}{$host_key}{server}{reload_interval} : 30);
-		  $self->{cache_expiry}{$host_key} = (AE::time + $reload_interval);
+                        my $reload_interval = ($self->{cache}{$host_key}{server}{reload_interval} ? $self->{cache}{$host_key}{server}{reload_interval} : 30);
+                        $self->{cache_expiry}{$host_key} = (AE::time + $reload_interval);
 		  
-		  $self->{locks}->up($host_key);
+                        $self->{locks}->up($host_key);
 		} else {
 			$self->{locks}->wait($host_key);
 		}

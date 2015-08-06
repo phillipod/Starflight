@@ -90,7 +90,7 @@ sub load_host_config {
 		} elsif ($key =~ /^config:\/\/[^\/]+\/server\/$/) {
 			$self->{logger}->debug("host key '$host_key' loading server definition from '$key'");
 
-			if (!$host_config->{server}) { $host_config->{server} = {}; }
+			$host_config->{server} = {};
 
 			$load_result = $self->load_host_server_config({ -key => $key }, $host_config->{server}); 
 		} elsif ($key =~ /^config:\/\/[^\/]+\/headers\/(request|response)\/(add|remove|replace|transform)\/$/) {
@@ -99,7 +99,7 @@ sub load_host_config {
 
 			$self->{logger}->debug("host key '$host_key' loading header $type/$action definition from '$key'");
 			
-			if (!$host_config->{headers}{$type}{$action}) { $host_config->{headers}{$type}{$action} = {}; }
+			$host_config->{headers}{$type}{$action} = {};
 			
 			if ($action eq "add") {
 				$load_result = $self->load_host_headers_add($key, $host_config->{headers}{$type}{$action});
@@ -118,7 +118,7 @@ sub load_host_config {
 
 			$self->{logger}->debug("host key '$host_key' loading cookie $action definition from '$key'");
 			
-			if (!$host_config->{cookies}{$action}) { $host_config->{cookies}{$action} = {}; }
+			$host_config->{cookies}{$action} = {};
 			
 			if ($action eq "add") {
 				$load_result = $self->load_host_cookies_add($key, $host_config->{cookies}{$action});
@@ -135,7 +135,7 @@ sub load_host_config {
 
 			$self->{logger}->debug("host key '$host_key' loading content $type/$action/$location definition from '$key'");
 			
-			if (!$host_config->{content}{$type}{$location}) { $host_config->{content}{$type}{$location} = {}; }
+			$host_config->{content}{$type}{$location} = {};
 			
 			if ($action eq "add") {
 				$load_result = $self->load_host_content_add($key, $location, $host_config->{content}{$type}{$location});
@@ -156,7 +156,7 @@ sub load_host_config {
 			
 			$self->{logger}->debug("host key '$host_key' loading content $type/$action/$location definition from '$key'");
 
-			if (!$host_config->{content}{$type}{$location}) { $host_config->{content}{$type}{$location} = {}; }
+			$host_config->{content}{$type}{$location} = {};
 			
 			if ($action eq "transform") {
 				$load_result = $self->load_host_content_transform($key, $location, $host_config->{content}{$type}{$location});
@@ -167,7 +167,7 @@ sub load_host_config {
 		} elsif ($key =~ /^trigger:\/\/[^\/]+\/$/) {
 			$self->{logger}->debug("host key '$host_key' loading trigger list from '$key'");
 
-			if (!$host_config->{triggers}) { $host_config->{triggers} = {}; }
+			$host_config->{triggers} = {};
 
 			$load_result = $self->load_host_triggers($key, $host_key, $host_config->{triggers}); 
 		} else {
