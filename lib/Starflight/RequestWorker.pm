@@ -223,7 +223,7 @@ sub transform_response_headers {
 	my $host_config = shift;
 	my $item = shift;
 	
-	if ($item->{response_headers}->header('Transfer-Encoding') eq "chunked") {
+	if (defined($item->{response_headers}->header('Transfer-Encoding')) && $item->{response_headers}->header('Transfer-Encoding') eq "chunked") {
 		$item->{response_headers}->remove_header('Transfer-Encoding');
 	}
 	
@@ -257,7 +257,7 @@ sub transform_response {
 	
 	my $content_type = $item->{response_headers}->header('Content-Type');
 	
-	if ($content_type =~ /^(.*)?;.*$/) {
+	if (defined($content_type) && $content_type =~ /^(.*)?;.*$/) {
 		$content_type = $1;
 	}
 	
