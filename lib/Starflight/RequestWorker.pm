@@ -129,6 +129,8 @@ sub decompress_response {
 	
 	my $decompressed_content = undef;
 
+	if (!defined($item->{response_original_content_encoding})) { return; }
+	
 	if ($item->{response_original_content_encoding} =~ /gzip/i) {
 		gunzip \$compressed_data => \$decompressed_content;
 	} elsif ($item->{response_original_content_encoding} =~ /bzip2/i) {
