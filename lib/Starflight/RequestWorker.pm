@@ -319,7 +319,7 @@ sub transform_response {
 		}
 	}
 	
-	if (defined($mime{'charset'} && $mime{'charset'} =~ /utf8|utf-8/) {
+	if (defined($mime{'charset'}) && $mime{'charset'} =~ /utf8|utf-8/) {
 		utf8::encode($item->{response_body});
 	}
 	
