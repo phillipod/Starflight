@@ -371,14 +371,20 @@ sub validate_response {
 	} 
 }
 
-sub request {
+sub serve_request {
 	my $self = shift;
 	my $request_cv = shift;
 	my $host_config = shift;
 	my $request = shift;
-	
-	my $response = Plack::Response->new();
-	
+    
+}
+
+sub proxy_request {
+	my $self = shift;
+	my $request_cv = shift;
+	my $host_config = shift;
+	my $request = shift;
+    
 	my $item = {
 		status => undef, 
 		uri => undef,
@@ -389,10 +395,7 @@ sub request {
 		response_original_content_encoding => undef,
 		response_headers => undef,
 		response_body => undef,
-		new_cookies => {}
 	};
-		
-	$request_cv->begin(sub { shift->send($response); });
 		
 	$self->transform_request($request_cv, $host_config, $request, $item);
 
@@ -405,17 +408,29 @@ sub request {
 	$item->{response_original_content_encoding} = $raw_response->{http_headers}->header('Content-Encoding');
 	
 	$self->transform_response($request_cv, $host_config, $raw_response, $item);
-	$self->add_response_cookies($request, $host_config, $item);
 	
 	$response->status($item->{status});
 	$response->headers($item->{response_headers});
 	$response->body($item->{response_body});	
-	 
-	$response->cookies($item->{new_cookies});
-	
-#	print Dumper($item);
-	
-	$request_cv->end();
 }
+
+sub request {
+	my $self = shift;
+	my $request_cv = shift;
+	my $host_config = shift;
+	my $request = shift;
+	
+	my $response = Plack::Response->new();
+    
+	$request_cv->begin(sub { shift->send($response); });
+	
+    my $cookies = {};
+    
+	$self->add_response_cookies($request, $host_config, $cookies);
+	$response->cookies($cookies);
+
+	$request_cv->end();    
+}	
+
 
 1;
