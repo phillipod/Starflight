@@ -223,7 +223,9 @@ sub transform_response_headers {
 	my $host_config = shift;
 	my $item = shift;
 	
+        $self->{logger}->debug("item: " . Dumper($item));
 	if (defined($item->{response_headers}->header('Transfer-Encoding')) && $item->{response_headers}->header('Transfer-Encoding') eq "chunked") {
+	        $self->{logger}->debug("removing transfer-encoding");
 		$item->{response_headers}->remove_header('Transfer-Encoding');
 	}
 	
@@ -253,13 +255,15 @@ sub transform_response {
 	
 	$self->decompress_response($item, $raw_response->{http_body});
 
+        $self->transform_response_headers($host_config, $item);
+        
 	my %mime = ();
-    
+	
 	if (defined($item->{response_headers}->header('Content-Type'))) {
 		my @mime_fields = split(/\s*;\s*/, $item->{response_headers}->header('Content-Type'));
-        
+		
 		$mime{'Content-Type'} = shift @mime_fields;
-        
+		
 		while(my $parameter = shift @mime_fields) {
 			$self->{logger}->debug("MIME parameter $parameter");
 			my ($name, $value) = split(/=/, $parameter);
@@ -269,7 +273,7 @@ sub transform_response {
 
 	if ($item->{status} != 304) {
 		my $content_type = $mime{'Content-Type'};
-        
+		
 		if ($host_config->{content}{response}{selection}{$content_type}) {
 			my $ops = $host_config->{content}{response}{selection}{$content_type};
 			my $dom = Mojo::DOM->new($item->{response_body});
@@ -326,7 +330,6 @@ sub transform_response {
 	
 	$self->compress_response($item, $item->{response_body});
 	
-	$item->{response_headers}->header('Content-Length' => length $item->{response_body});	
 	
 	$request_cv->end();
 }
@@ -377,7 +380,19 @@ sub serve_request {
 	my $request_cv = shift;
 	my $host_config = shift;
 	my $request = shift;
-    
+
+	my $status = undef;
+	my $headers = undef;
+	my $body = undef;
+	        
+        if (defined($host_config->{uri}{routes}{$request->path()}{content})) {
+                $body = $host_config->{uri}{routes}{$request->path()}{content};
+                $status = 200;
+        } elsif (defined($host_config->{uri}{routes}{$request->path()}{template})) {
+        
+        }
+
+        return($status, $host_config->{uri}{routes}{$request->path()}{headers}, $body);	
 }
 
 sub proxy_request {
@@ -385,7 +400,7 @@ sub proxy_request {
 	my $request_cv = shift;
 	my $host_config = shift;
 	my $request = shift;
-    
+	
 	my $item = {
 		status => undef, 
 		uri => undef,
@@ -410,9 +425,7 @@ sub proxy_request {
 	
 	$self->transform_response($request_cv, $host_config, $raw_response, $item);
 	
-	$response->status($item->{status});
-	$response->headers($item->{response_headers});
-	$response->body($item->{response_body});	
+	return ($item->{status}, $item->{response_headers}, $item->{response_body});	
 }
 
 sub request {
@@ -422,15 +435,31 @@ sub request {
 	my $request = shift;
 	
 	my $response = Plack::Response->new();
-    
-	$request_cv->begin(sub { shift->send($response); });
 	
-    my $cookies = {};
-    
-	$self->add_response_cookies($request, $host_config, $cookies);
-	$response->cookies($cookies);
+	$request_cv->begin(sub { shift->send($response); });
 
-	$request_cv->end();    
+	my $status = undef;
+	my $headers = undef;
+	my $body = undef;
+	
+	if (defined($host_config->{uri}{routes}{$request->path()})) {
+		($status, $headers, $body) = $self->serve_request($request_cv, $host_config, $request);
+	} else {
+	        ($status, $headers, $body) = $self->proxy_request($request_cv, $host_config, $request);
+	}	
+	
+	my $cookies = ();
+	
+	$response->status($status);
+        $response->headers($headers);
+        $response->body($body);
+        
+	$self->add_response_cookies($request, $host_config, $cookies);
+        $response->cookies($cookies);
+
+	$response->header('Content-Length' => length $body);	
+	
+	$request_cv->end();
 }	
 
 

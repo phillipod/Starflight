@@ -84,7 +84,6 @@ sub handler {
 	my $response = undef;
 	my $host_config = undef; 
 	
-    $self->{logger}->trace("Dumping environment: " . Dumper($env));
 	try {
 		if ($self->{state} ne 'started') {
 			Starflight::Exception::Proxy::ConnectionError->throw();	
