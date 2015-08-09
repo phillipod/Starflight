@@ -253,16 +253,22 @@ sub transform_response {
 	
 	$self->decompress_response($item, $raw_response->{http_body});
 
-	$self->transform_response_headers($host_config, $item);
-	
-	my $content_type = $item->{response_headers}->header('Content-Type');
-	
-	if (defined($content_type) && $content_type =~ /^(.*?);.*$/) {
-		$content_type = $1;
-	}
-	
-	my $encode_utf_required = 0;
+    my %mime = ();
+    
+    if (defined($item->{response_headers}->header('Content-Type'))) {
+        my @mime_fields = split(/;/, $item->{response_headers}->header('Content-Type'));
+        
+        $mime{'Content-Type'} = shift @mime_fields;
+        
+        foreach my $parameter (shift @mime_fields) {
+            my ($name, $value) = split(/=/, $parameter);
+            $mime{$name} = $value;
+        }
+    }
+
 	if ($item->{status} != 304) {
+        my $content_type = $mime{'Content-Type'};
+        
 		if ($host_config->{content}{response}{selection}{$content_type}) {
 			my $ops = $host_config->{content}{response}{selection}{$content_type};
 			my $dom = Mojo::DOM->new($item->{response_body});
@@ -294,7 +300,6 @@ sub transform_response {
 			}
 
 			$item->{response_body} = $dom->to_string;	   
-			$encode_utf_required++;
 		}
 	
 		$self->{logger}->debug("Checking for text replacements for content type $content_type");
@@ -311,11 +316,10 @@ sub transform_response {
 					$item->{response_body} =~ s/$transformation->{match}/$transformation->{replace}/gi;
 				}
 			}
-			$encode_utf_required++;
 		}
 	}
 	
-	if ($encode_utf_required) {
+    if ($mime{'charset'} =~ /utf8|utf-8/) {
 		utf8::encode($item->{response_body});
 	}
 	
