@@ -256,11 +256,12 @@ sub transform_response {
 	my %mime = ();
     
 	if (defined($item->{response_headers}->header('Content-Type'))) {
-		my @mime_fields = split(/;/, $item->{response_headers}->header('Content-Type'));
+		my @mime_fields = split(/\s*;\s*/, $item->{response_headers}->header('Content-Type'));
         
 		$mime{'Content-Type'} = shift @mime_fields;
         
-		foreach my $parameter (shift @mime_fields) {
+		while(my $parameter = shift @mime_fields) {
+			$self->{logger}->debug("MIME parameter $parameter");
 			my ($name, $value) = split(/=/, $parameter);
 			$mime{$name} = $value;
 		}
