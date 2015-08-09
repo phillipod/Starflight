@@ -430,29 +430,29 @@ sub load_host_uri_routes {
 
 	my %result_hash = @{$keyData};
 	foreach my $result_key (keys %result_hash) {
-		$routes->{$result_key} = {};
-
-		$self->load_host_uri_route_definition($result_key, $routes->{$result_key});
+		$self->load_host_uri_route_definition($result_hash{$result_key}, \$routes->{$result_key});
 	}
 }
 
 sub load_host_uri_route_definition {
 	my $self = shift;
 	my $key = shift;
-	my $route = shift;
+	my $route_config = shift;
 
 	my $keyData = $self->command([ "HGETALL", $key ]);
-
 	my %result_hash = @{$keyData};
 
-	foreach my $result_key (keys %result_hash) {
-		$route->{$result_key} = $result_hash{$result_key};	
-	}
+	$self->{logger}->debug("key '$key' loading headers from $result_hash{headers} (" . Dumper(\%result_hash) . ")");
+
+	$keyData = $self->command([ "HGETALL", $result_hash{headers} ]);
+	$result_hash{headers} = {@{$keyData}};
 	
 	if (exists $result_hash{template}) {
-		$route->{template} = new Text::Template(TYPE => 'STRING', SOURCE => $result_hash{template});
-		$route->{template}->compile();
+		$result_hash{template} = new Text::Template(TYPE => 'STRING', SOURCE => $result_hash{template});
+		$result_hash{template}->compile();
 	}	
+
+	$$route_config = \%result_hash;
 }
 
 sub load_host_triggers {
