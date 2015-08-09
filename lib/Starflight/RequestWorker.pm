@@ -253,21 +253,21 @@ sub transform_response {
 	
 	$self->decompress_response($item, $raw_response->{http_body});
 
-    my %mime = ();
+	my %mime = ();
     
-    if (defined($item->{response_headers}->header('Content-Type'))) {
-        my @mime_fields = split(/;/, $item->{response_headers}->header('Content-Type'));
+	if (defined($item->{response_headers}->header('Content-Type'))) {
+		my @mime_fields = split(/;/, $item->{response_headers}->header('Content-Type'));
         
-        $mime{'Content-Type'} = shift @mime_fields;
+		$mime{'Content-Type'} = shift @mime_fields;
         
-        foreach my $parameter (shift @mime_fields) {
-            my ($name, $value) = split(/=/, $parameter);
-            $mime{$name} = $value;
-        }
-    }
+		foreach my $parameter (shift @mime_fields) {
+			my ($name, $value) = split(/=/, $parameter);
+			$mime{$name} = $value;
+		}
+	}
 
 	if ($item->{status} != 304) {
-        my $content_type = $mime{'Content-Type'};
+		my $content_type = $mime{'Content-Type'};
         
 		if ($host_config->{content}{response}{selection}{$content_type}) {
 			my $ops = $host_config->{content}{response}{selection}{$content_type};
@@ -319,7 +319,7 @@ sub transform_response {
 		}
 	}
 	
-    if ($mime{'charset'} =~ /utf8|utf-8/) {
+	if (defined($mime{'charset'} && $mime{'charset'} =~ /utf8|utf-8/) {
 		utf8::encode($item->{response_body});
 	}
 	
