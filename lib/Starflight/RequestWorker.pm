@@ -257,7 +257,7 @@ sub transform_response {
 	
 	my $content_type = $item->{response_headers}->header('Content-Type');
 	
-	if (defined($content_type) && $content_type =~ /^(.*)?;.*$/) {
+	if (defined($content_type) && $content_type =~ /^(.*?);.*$/) {
 		$content_type = $1;
 	}
 	

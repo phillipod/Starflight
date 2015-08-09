@@ -164,6 +164,18 @@ sub load_host_config {
 				# unknown action type	
 				$self->{logger}->warn("host key '$host_key' loading unknown content action type '$action' definition from '$key'");
 			}
+		} elsif ($key =~ /^config:\/\/[^\/]+\/uri\/(routes)\/$/) {
+			my $type = $1;
+			$self->{logger}->debug("host key '$host_key' loading uri $type definition from '$key'");
+
+			$host_config->{uri}{routes} = {};
+			
+			if ($type eq "routes") {
+				$load_result = $self->load_host_uri_routes($key, $host_config->{uri}{routes});
+			} else {
+				# unknown type	
+				$self->{logger}->warn("host key '$host_key' loading unknown uri type '$type' definition from '$key'");
+			}
 		} elsif ($key =~ /^trigger:\/\/[^\/]+\/$/) {
 			$self->{logger}->debug("host key '$host_key' loading trigger list from '$key'");
 
@@ -407,6 +419,40 @@ sub load_host_content_transformation_global {
 	push(@{$content_transformation}, $transform);
 	
 	#print Dumper($content_transformation);
+}
+
+sub load_host_uri_routes {
+	my $self = shift;
+	my $key = shift;
+	my $routes = shift;
+
+	my $keyData = $self->command([ "HGETALL", $key ]);
+
+	my %result_hash = @{$keyData};
+	foreach my $result_key (keys %result_hash) {
+		$routes->{$result_key} = {};
+
+		$self->load_host_uri_route_definition($result_key, $routes->{$result_key});
+	}
+}
+
+sub load_host_uri_route_definition {
+	my $self = shift;
+	my $key = shift;
+	my $route = shift;
+
+	my $keyData = $self->command([ "HGETALL", $key ]);
+
+	my %result_hash = @{$keyData};
+
+	foreach my $result_key (keys %result_hash) {
+		$route->{$result_key} = $result_hash{$result_key};	
+	}
+	
+	if (exists $result_hash{template}) {
+		$route->{template} = new Text::Template(TYPE => 'STRING', SOURCE => $result_hash{template});
+		$route->{template}->compile();
+	}	
 }
 
 sub load_host_triggers {
