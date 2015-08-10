@@ -129,8 +129,8 @@ sub decompress_response {
 	
 	my $decompressed_content = undef;
 
-	if (!defined($item->{response_original_content_encoding})) { return; }
-	
+	if (!defined($item->{response_original_content_encoding})) { $item->{response_body} = $compressed_data; return; }
+
 	if ($item->{response_original_content_encoding} =~ /gzip/i) {
 		gunzip \$compressed_data => \$decompressed_content;
 	} elsif ($item->{response_original_content_encoding} =~ /bzip2/i) {
@@ -323,13 +323,12 @@ sub transform_response {
 			}
 		}
 	}
-	
+
 	if (defined($mime{'charset'}) && $mime{'charset'} =~ /utf8|utf-8/) {
 		utf8::encode($item->{response_body});
 	}
-	
+
 	$self->compress_response($item, $item->{response_body});
-	
 	
 	$request_cv->end();
 }
