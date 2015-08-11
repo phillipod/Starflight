@@ -271,8 +271,14 @@ sub transform_response {
 		}
 	}
 
+	my $replacements = 0;
+	my $content_type = $mime{'Content-Type'};
+	
+	if (defined($mime{'charset'}) && $mime{'charset'} =~ /utf8|utf-8/) { 
+		utf8::decode($item->{response_body});
+	}
+
 	if ($item->{status} != 304) {
-		my $content_type = $mime{'Content-Type'};
 		
 		if ($host_config->{content}{response}{selection}{$content_type}) {
 			my $ops = $host_config->{content}{response}{selection}{$content_type};
