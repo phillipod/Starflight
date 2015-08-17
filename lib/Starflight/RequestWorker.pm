@@ -97,6 +97,8 @@ sub handler {
 	my $item = $work->{item};
 
 	if ($item->{method}) {
+		delete $item->{request_headers}->{'::std_case'};
+		
 		http_request $item->{method} => $item->{uri}, headers => $item->{request_headers}, body => $item->{request_body},
 			sub {
 				my $http_status = delete $_[1]->{Status};
@@ -198,7 +200,7 @@ sub transform_request_headers {
 
 	$headers->remove_header('Accept-Encoding');
 	$headers->header('Accept-Encoding' => 'gzip, bzip2, deflate');		
-
+	
 	return $headers;
 }
 
@@ -252,7 +254,8 @@ sub transform_response {
 
 	$item->{status} = $raw_response->{http_status};
 	$item->{response_headers} = HTTP::Headers->new(%{$raw_response->{http_headers}});	
-
+	delete $item->{response_headers}->{'::std_case'};
+	
 	$self->decompress_response($item, $raw_response->{http_body});
 
 	$self->transform_response_headers($host_config, $item);
@@ -449,9 +452,11 @@ sub request {
 
 	if (defined($host_config->{uri}{routes}{$request->path()})) {
 		($status, $headers, $body) = $self->serve_request($request_cv, $host_config, $request);
-	} else {
+	} elsif (defined($host_config->{server}{host_header})) {
 		($status, $headers, $body) = $self->proxy_request($request_cv, $host_config, $request);
-	}	
+	} else {
+		($status, $headers, $body) = (404, {}, "404 - Not Found");
+	}
 
 	my $cookies = {};
 
