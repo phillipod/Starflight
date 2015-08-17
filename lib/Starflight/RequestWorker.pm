@@ -33,7 +33,7 @@ use Data::Dumper;
 sub new {
 	my $class = shift;
 	my $parent = shift;
-	
+
 	my $self = {};
 
 	bless($self, $class);
@@ -41,22 +41,22 @@ sub new {
 	$self->{logger} = Log::Log4perl::get_logger('Starflight::RequestWorker');
 
 	$self->{parent} = $parent;
-	
+
 	$self->{settings} = $parent->{settings}{request_worker};
 	$self->{queue} = $self->channel('Starflight::RequestWorker.worker_queue');
 
 	$self->{config} = $parent->{config};
-	
+
 	return $self;
 }
 
 sub start {
 	my $self = shift;
-	
+
 	my $workersOverride = shift;
 
 	my $workers = (defined($workersOverride) ? $workersOverride : $self->{settings}{workers});
-	
+
 	for (my $i = 0; $i < $workers; $i++) {
 		$self->worker($i);
 		$self->{workers}++;
@@ -65,7 +65,7 @@ sub start {
 
 sub stop {
 	my $self = shift;
-	
+
 	$self->{queue}->shutdown();	  
 }
 
@@ -85,7 +85,7 @@ sub worker {
 		$self->{logger}->trace($workerString . ' - terminating');
 		$self->{workers}--;
 	};
-	
+
 	push(@{$self->{_workers}}, $worker);
 }
 
@@ -95,7 +95,7 @@ sub handler {
 	my $worker = shift;
 	my $work = shift;
 	my $item = $work->{item};
-	
+
 	if ($item->{method}) {
 		http_request $item->{method} => $item->{uri}, headers => $item->{request_headers}, body => $item->{request_body},
 			sub {
@@ -118,7 +118,7 @@ sub handler {
 sub channel {
 	my $self = shift;
 	my $name = shift;
-	
+
 	return $self->{parent}->channel($name);	
 }
 
@@ -126,7 +126,7 @@ sub decompress_response {
 	my $self = shift;
 	my $item = shift;
 	my $compressed_data = shift;
-	
+
 	my $decompressed_content = undef;
 
 	if (!defined($item->{response_original_content_encoding})) { $item->{response_body} = $compressed_data; return; }
@@ -154,7 +154,7 @@ sub compress_response {
 	my $compressed_data = undef;
 
 	if (!defined($item->{request_original_acceptable_encoding})) { return; }
-	
+
 	if ($item->{status} != 304) {
 	 	my $encoding = undef;
  	
@@ -168,7 +168,7 @@ sub compress_response {
 	  		bzip2 \$uncompressed_content => \$compressed_data;
 			$encoding = $1;
 		}
-	
+
 		if (defined($compressed_data)) {
 			$item->{response_headers}->header('Content-Encoding' => $encoding);
 			$item->{response_body} = $compressed_data;
@@ -180,9 +180,9 @@ sub transform_request_headers {
 	my $self = shift;
 	my $host_config = shift;
 	my $request = shift;
-	
+
 	my $headers = $request->headers->clone;
-	
+
 	if ($host_config->{server}{host_header}) {
 		$headers->header('Host' => $host_config->{server}{host_header});
 	}
@@ -198,7 +198,7 @@ sub transform_request_headers {
 
 	$headers->remove_header('Accept-Encoding');
 	$headers->header('Accept-Encoding' => 'gzip, bzip2, deflate');		
-	
+
 	return $headers;
 }
 
@@ -208,13 +208,13 @@ sub transform_request {
 	my $host_config = shift;
 	my $request = shift;
 	my $item = shift;
-	
+
 	$request_cv->begin();
 
 	$item->{request_headers} = $self->transform_request_headers($host_config, $request);
 	$item->{uri} = $request->scheme . '://' . $item->{request_headers}->header('Host') . $request->request_uri;
 	$item->{request_body} = $request->raw_body;
-	
+
 	$request_cv->end();
 }
 
@@ -222,13 +222,13 @@ sub transform_response_headers {
 	my $self = shift;
 	my $host_config = shift;
 	my $item = shift;
-	
-        $self->{logger}->debug("item: " . Dumper($item));
+
+	$self->{logger}->debug("item: " . Dumper($item));
 	if (defined($item->{response_headers}->header('Transfer-Encoding')) && $item->{response_headers}->header('Transfer-Encoding') eq "chunked") {
-	        $self->{logger}->debug("removing transfer-encoding");
+		$self->{logger}->debug("removing transfer-encoding");
 		$item->{response_headers}->remove_header('Transfer-Encoding');
 	}
-	
+
 	while (my ($transform_header, $transformation) = each %{$host_config->{headers}{response}{transform}}) {
 		Coro::AnyEvent::poll;
 #		print "Checking $transform_header\n";
@@ -252,13 +252,13 @@ sub transform_response {
 
 	$item->{status} = $raw_response->{http_status};
 	$item->{response_headers} = HTTP::Headers->new(%{$raw_response->{http_headers}});	
-	
+
 	$self->decompress_response($item, $raw_response->{http_body});
 
-        $self->transform_response_headers($host_config, $item);
-        
+	$self->transform_response_headers($host_config, $item);
+
 	my %mime = ();
-	
+
 	if (defined($item->{response_headers}->header('Content-Type'))) {
 		my @mime_fields = split(/\s*;\s*/, $item->{response_headers}->header('Content-Type'));
 		
@@ -273,7 +273,7 @@ sub transform_response {
 
 	my $replacements = 0;
 	my $content_type = $mime{'Content-Type'};
-	
+
 	if (defined($mime{'charset'}) && $mime{'charset'} =~ /utf8|utf-8/) { 
 		utf8::decode($item->{response_body});
 	}
@@ -312,7 +312,7 @@ sub transform_response {
 
 			$item->{response_body} = $dom->to_string;	   
 		}
-	
+
 		$self->{logger}->debug("Checking for text replacements for content type $content_type");
 		if ($host_config->{content}{response}{global}{$content_type}) {
 			my $ops = $host_config->{content}{response}{global}{$content_type};
@@ -335,7 +335,7 @@ sub transform_response {
 	}
 
 	$self->compress_response($item, $item->{response_body});
-	
+
 	$request_cv->end();
 }
 
@@ -375,7 +375,7 @@ sub validate_response {
 		$raw_response->{http_status} == 595 && Starflight::Exception::Proxy::ConnectionError->throw();
 		$raw_response->{http_status} == 596 && Starflight::Exception::Proxy::RequestError->throw();
 		$raw_response->{http_status} == 597 && Starflight::Exception::Proxy::ResponseError->throw();
-	
+
 		Starflight::Exception::Proxy::OtherError->throw();	
 	} 
 }
@@ -389,15 +389,15 @@ sub serve_request {
 	my $status = undef;
 	my $headers = undef;
 	my $body = undef;
-	        
-        if (defined($host_config->{uri}{routes}{$request->path()}{content})) {
-                $body = $host_config->{uri}{routes}{$request->path()}{content};
-                $status = 200;
-        } elsif (defined($host_config->{uri}{routes}{$request->path()}{template})) {
-        
-        }
+		
+	if (defined($host_config->{uri}{routes}{$request->path()}{content})) {
+		$body = $host_config->{uri}{routes}{$request->path()}{content};
+		$status = 200;
+	} elsif (defined($host_config->{uri}{routes}{$request->path()}{template})) {
 
-        return($status, $host_config->{uri}{routes}{$request->path()}{headers}, $body);	
+	}
+
+	return($status, $host_config->{uri}{routes}{$request->path()}{headers}, $body);	
 }
 
 sub proxy_request {
@@ -405,7 +405,7 @@ sub proxy_request {
 	my $request_cv = shift;
 	my $host_config = shift;
 	my $request = shift;
-	
+
 	my $item = {
 		status => undef, 
 		uri => undef,
@@ -423,13 +423,13 @@ sub proxy_request {
 	my $worker_cv = AnyEvent->condvar;
 	$self->{queue}->put({ cv => $worker_cv, item => $item });
 	my $raw_response = $worker_cv->recv();
-	
+
 	$self->validate_response($raw_response);
-	
+
 	$item->{response_original_content_encoding} = $raw_response->{http_headers}->header('Content-Encoding');
-	
+
 	$self->transform_response($request_cv, $host_config, $raw_response, $item);
-	
+
 	return ($item->{status}, $item->{response_headers}, $item->{response_body});	
 }
 
