@@ -343,10 +343,10 @@ sub add_response_cookies {
 	my $self = shift;
 	my $request = shift;
 	my $host_config = shift;
-	my $item = shift;
+	my $cookies = shift;
 
 	if (!exists $host_config->{cookies}{add}) { return; }
-	
+
 	foreach my $cookie (keys %{$host_config->{cookies}{add}}) {
 		if (!exists $request->cookies->{$cookie}) {
 			if (exists $host_config->{cookies}{add}{$cookie}{trigger}) {
@@ -362,7 +362,7 @@ sub add_response_cookies {
 				$host_config->{cookies}{add}{$cookie}{expires} = int(AE::time + $host_config->{cookies}{add}{$cookie}{'max-age'});
 			}
 			
-			$item->{new_cookies}{$cookie} = $host_config->{cookies}{add}{$cookie};
+			$cookies->{$cookie} = $host_config->{cookies}{add}{$cookie};
 		}
 	}
 }
@@ -438,32 +438,33 @@ sub request {
 	my $request_cv = shift;
 	my $host_config = shift;
 	my $request = shift;
-	
+
 	my $response = Plack::Response->new();
-	
+
 	$request_cv->begin(sub { shift->send($response); });
 
 	my $status = undef;
 	my $headers = undef;
 	my $body = undef;
-	
+
 	if (defined($host_config->{uri}{routes}{$request->path()})) {
 		($status, $headers, $body) = $self->serve_request($request_cv, $host_config, $request);
 	} else {
-	        ($status, $headers, $body) = $self->proxy_request($request_cv, $host_config, $request);
+		($status, $headers, $body) = $self->proxy_request($request_cv, $host_config, $request);
 	}	
-	
-	my $cookies = ();
-	
+
+	my $cookies = {};
+
 	$response->status($status);
-        $response->headers($headers);
-        $response->body($body);
-        
+	$response->headers($headers);
+	$response->body($body);
+
 	$self->add_response_cookies($request, $host_config, $cookies);
-        $response->cookies($cookies);
+	$self->{logger}->trace("Dumping response cookies: " . Dumper($cookies));
+	$response->cookies($cookies);
 
 	$response->header('Content-Length' => length $body);	
-	
+
 	$request_cv->end();
 }	
 
