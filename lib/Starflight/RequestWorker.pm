@@ -98,8 +98,8 @@ sub handler {
 
 	if ($item->{method}) {
 		delete $item->{request_headers}->{'::std_case'};
-		
-		http_request $item->{method} => $item->{uri}, headers => $item->{request_headers}, body => $item->{request_body},
+
+		http_request $item->{method} => $item->{uri}, headers => $item->{request_headers}, body => $item->{request_body}, recurse => 0,
 			sub {
 				my $http_status = delete $_[1]->{Status};
 				my $http_reason = delete $_[1]->{Reason};
@@ -225,12 +225,17 @@ sub transform_response_headers {
 	my $host_config = shift;
 	my $item = shift;
 
-	$self->{logger}->debug("item: " . Dumper($item));
 	if (defined($item->{response_headers}->header('Transfer-Encoding')) && $item->{response_headers}->header('Transfer-Encoding') eq "chunked") {
 		$self->{logger}->debug("removing transfer-encoding");
 		$item->{response_headers}->remove_header('Transfer-Encoding');
 	}
 
+	if ((my $value = $item->{response_headers}->header('Location'))) {
+		my $transformation = $host_config->{headers}{response}{transform}{'url'};
+		$value =~ s/$transformation->{match}/$transformation->{replace}/gi;
+		$item->{response_headers}->header('Location' => $value);
+	}
+	
 	while (my ($transform_header, $transformation) = each %{$host_config->{headers}{response}{transform}}) {
 		Coro::AnyEvent::poll;
 #		print "Checking $transform_header\n";
@@ -281,7 +286,8 @@ sub transform_response {
 		utf8::decode($item->{response_body});
 	}
 
-	if ($item->{status} != 304) {
+#	if ($item->{status} != 304) {
+	if ($item->{status} !~ /^30[123478]$/) {
 		
 		if ($host_config->{content}{response}{selection}{$content_type}) {
 			my $ops = $host_config->{content}{response}{selection}{$content_type};
@@ -420,7 +426,7 @@ sub proxy_request {
 		response_headers => undef,
 		response_body => undef,
 	};
-		
+	
 	$self->transform_request($request_cv, $host_config, $request, $item);
 
 	my $worker_cv = AnyEvent->condvar;

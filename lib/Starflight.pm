@@ -51,6 +51,7 @@ use Starflight::TriggerWorker;
 use Starflight::Engine;
 
 use Plack::Runner;
+use Plack::Middleware::ReverseProxy;
 
 our $VERSION = '0.01';
 
@@ -133,7 +134,8 @@ sub start {
 	};
 
 	# And now start the web application
-	$runner->run(sub { $self->{engine}->run(@_); });
+    
+	$runner->run(Plack::Middleware::ReverseProxy->wrap(sub { $self->{engine}->run(@_); }));
 }
 
 sub channel {
