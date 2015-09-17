@@ -278,6 +278,10 @@ sub load_host_headers_transformation {
 
 	foreach my $result_key (keys %result_hash) {
 		if ($result_key eq "match") {
+			if ($result_hash{'type'} eq "text") {
+				$result_hash{$result_key} = quotemeta($result_hash{$result_key});
+			}
+
 			$header_transformation->{$result_key} = qr/$result_hash{$result_key}/;
 		} else {
 			$header_transformation->{$result_key} = $result_hash{$result_key};
