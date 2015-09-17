@@ -415,6 +415,10 @@ sub load_host_content_transformation_global {
 	my $transform = ();
 	foreach my $result_key (keys %result_hash) {
 		if ($result_key eq "match") {
+			if ($result_hash{'type'} eq "text") {
+				$result_hash{$result_key} = quotemeta($result_hash{$result_key});
+			}
+
 			$transform->{$result_key} = qr/$result_hash{$result_key}/;
 		} else {
 			$transform->{$result_key} = $result_hash{$result_key};
