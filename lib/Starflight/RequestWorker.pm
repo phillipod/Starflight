@@ -232,9 +232,19 @@ sub transform_response_headers {
 
 	if ((my $value = $item->{response_headers}->header('Location'))) {
 		my $transformation = $host_config->{headers}{response}{transform}{'url'};
+		$value =~ s/:80\/\//;
+
 		$value =~ s/$transformation->{match}/$transformation->{replace}/gi;
 		$item->{response_headers}->header('Location' => $value);
 	}
+
+	if ((my $value = $item->{response_headers}->header('Content-Location'))) {
+		my $transformation = $host_config->{headers}{response}{transform}{'url'};
+		$value =~ s/:80\/\//;
+		$value =~ s/$transformation->{match}/$transformation->{replace}/gi;
+		$item->{response_headers}->header('Content-Location' => $value);
+	}
+
 	
 	while (my ($transform_header, $transformation) = each %{$host_config->{headers}{response}{transform}}) {
 		Coro::AnyEvent::poll;
