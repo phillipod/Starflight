@@ -292,7 +292,7 @@ sub transform_response {
 	my $replacements = 0;
 	my $content_type = $mime{'Content-Type'};
 
-	if (defined($mime{'charset'}) && $mime{'charset'} =~ /utf8|utf-8/) { 
+	if (defined($mime{'charset'}) && $mime{'charset'} =~ /utf8|utf-8/ && $content_type !~ /^image/) { 
 		utf8::decode($item->{response_body});
 	}
 
@@ -349,7 +349,7 @@ sub transform_response {
 		}
 	}
 
-	if (defined($mime{'charset'}) && $mime{'charset'} =~ /utf8|utf-8/) {
+	if (defined($mime{'charset'}) && $mime{'charset'} =~ /utf8|utf-8/ && $content_type !~ /^image/) {
 		utf8::encode($item->{response_body});
 	}
 
